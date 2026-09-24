@@ -52,13 +52,14 @@ export async function GET(
     // Department isolation for managers
     if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department) {
-        const lead = await db.lead.findUnique({ where: { id: interaction.lead_id }, include: { assigned_to: true } })
-        const isLeadDeptMatch = lead?.department === userProfile.department
-        const isAgentDeptMatch = lead?.assigned_to?.department === userProfile.department
-        if (!isLeadDeptMatch && !isAgentDeptMatch) {
-          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-        }
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+      }
+      const lead = await db.lead.findUnique({ where: { id: interaction.lead_id }, include: { assigned_to: true } })
+      const isLeadDeptMatch = lead?.department === userProfile.department
+      const isAgentDeptMatch = lead?.assigned_to?.department === userProfile.department
+      if (!isLeadDeptMatch && !isAgentDeptMatch) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }
 
@@ -107,13 +108,14 @@ export async function PUT(
     // Department isolation for managers
     if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department) {
-        const lead = await db.lead.findUnique({ where: { id: existing.lead_id }, include: { assigned_to: true } })
-        const isLeadDeptMatch = lead?.department === userProfile.department
-        const isAgentDeptMatch = lead?.assigned_to?.department === userProfile.department
-        if (!isLeadDeptMatch && !isAgentDeptMatch) {
-          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-        }
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+      }
+      const lead = await db.lead.findUnique({ where: { id: existing.lead_id }, include: { assigned_to: true } })
+      const isLeadDeptMatch = lead?.department === userProfile.department
+      const isAgentDeptMatch = lead?.assigned_to?.department === userProfile.department
+      if (!isLeadDeptMatch && !isAgentDeptMatch) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }
 
@@ -184,13 +186,14 @@ export async function DELETE(
     // Department isolation for managers
     if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department) {
-        const lead = await db.lead.findUnique({ where: { id: existing.lead_id }, include: { assigned_to: true } })
-        const isLeadDeptMatch = lead?.department === userProfile.department
-        const isAgentDeptMatch = lead?.assigned_to?.department === userProfile.department
-        if (!isLeadDeptMatch && !isAgentDeptMatch) {
-          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-        }
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+      }
+      const lead = await db.lead.findUnique({ where: { id: existing.lead_id }, include: { assigned_to: true } })
+      const isLeadDeptMatch = lead?.department === userProfile.department
+      const isAgentDeptMatch = lead?.assigned_to?.department === userProfile.department
+      if (!isLeadDeptMatch && !isAgentDeptMatch) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }
 

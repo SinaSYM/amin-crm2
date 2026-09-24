@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession, isAuthorized } from '@/lib/auth'
 import { UserRole } from '@prisma/client'
+import { csvRow } from '@/lib/csv'
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,9 +24,10 @@ export async function GET(request: NextRequest) {
     // Dept managers see only their department's interactions
     if (session.userRole === UserRole.DEPT_MANAGER || session.userRole === UserRole.SALES_MANAGER) {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department) {
-        where.lead = { department: userProfile.department }
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'کاربر مدیر به دپارتمان معتبری تخصیص داده نشده است' }, { status: 403 })
       }
+      where.lead = { department: userProfile.department }
     }
 
     const interactions = await db.interaction.findMany({
@@ -54,7 +56,7 @@ export async function GET(request: NextRequest) {
       interaction.lead.phone_number,
       `${interaction.agent.first_name} ${interaction.agent.last_name}`,
       interactionTypeLabels[interaction.interaction_type] || interaction.interaction_type,
-      `"${interaction.content.replace(/"/g, '""')}"`,
+      interaction.content,
       interaction.next_followup_date
         ? new Date(interaction.next_followup_date).toLocaleDateString('fa-IR')
         : '—',
@@ -62,8 +64,8 @@ export async function GET(request: NextRequest) {
     ])
 
     const csvContent = [
-      headers.join(','),
-      ...rows.map((row) => row.join(',')),
+      csvRow(headers),
+      ...rows.map(csvRow),
     ].join('\n')
 
     // Add BOM for proper UTF-8 display

@@ -56,7 +56,7 @@ export async function GET(
     // Department filtering for managers
     if (session.userRole === UserRole.DEPT_MANAGER || session.userRole === UserRole.SALES_MANAGER) {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department && payment.enrollment.course.department !== userProfile.department) {
+      if (!userProfile?.department || payment.enrollment.course.department !== userProfile.department) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }
@@ -101,12 +101,16 @@ export async function PUT(
     // Department filtering for managers
     const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
     if (session.userRole === UserRole.DEPT_MANAGER || session.userRole === UserRole.SALES_MANAGER) {
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+      }
       const enrollment = await db.enrollment.findUnique({ where: { id: existing.enrollment_id } })
-      if (enrollment) {
-        const course = await db.course.findUnique({ where: { id: enrollment.course_id } })
-        if (userProfile?.department && course?.department !== userProfile.department) {
-          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-        }
+      if (!enrollment) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      const course = await db.course.findUnique({ where: { id: enrollment.course_id } })
+      if (!course || course.department !== userProfile.department) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }
 
@@ -193,12 +197,16 @@ export async function DELETE(
     // Department filtering for managers
     const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
     if (session.userRole === UserRole.DEPT_MANAGER || session.userRole === UserRole.SALES_MANAGER) {
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+      }
       const enrollment = await db.enrollment.findUnique({ where: { id: existing.enrollment_id } })
-      if (enrollment) {
-        const course = await db.course.findUnique({ where: { id: enrollment.course_id } })
-        if (userProfile?.department && course?.department !== userProfile.department) {
-          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-        }
+      if (!enrollment) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      const course = await db.course.findUnique({ where: { id: enrollment.course_id } })
+      if (!course || course.department !== userProfile.department) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }
 

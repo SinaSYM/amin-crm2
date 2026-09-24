@@ -53,6 +53,10 @@ export async function GET(request: NextRequest) {
       select: { department: true },
     })
 
+    if ((session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') && !userProfile?.department) {
+      return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+    }
+
     const leadWhere: Record<string, any> = {}
     const interactionWhere: Record<string, any> = {}
     const enrollmentWhere: Record<string, any> = {}
@@ -68,23 +72,20 @@ export async function GET(request: NextRequest) {
     ) {
       // Org-wide officer roles: sees everything (same as ADMIN across the rest of the app)
     } else if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
-      if (userProfile?.department) {
-        leadWhere.OR = [
-          { department: userProfile.department },
-          { assigned_to: { department: userProfile.department } }
+      leadWhere.OR = [
+        { department: userProfile!.department! },
+        { assigned_to: { department: userProfile!.department! } }
+      ]
+      interactionWhere.lead = {
+        OR: [
+          { department: userProfile!.department! },
+          { assigned_to: { department: userProfile!.department! } }
         ]
-        interactionWhere.lead = {
-          OR: [
-            { department: userProfile.department },
-            { assigned_to: { department: userProfile.department } }
-          ]
-        }
-        enrollmentWhere.course = { department: userProfile.department }
-        agentWhere.department = userProfile.department
-        courseWhere.department = userProfile.department
-        userWhere.department = userProfile.department
       }
-      // Managers without a department see org-wide data
+      enrollmentWhere.course = { department: userProfile!.department! }
+      agentWhere.department = userProfile!.department
+      courseWhere.department = userProfile!.department
+      userWhere.department = userProfile!.department
     } else {
       // SALES_AGENT sees only their own assigned leads
       leadWhere.assigned_to_id = session.userId

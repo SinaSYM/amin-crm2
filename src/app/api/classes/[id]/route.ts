@@ -33,7 +33,7 @@ export async function GET(
     const isManager = session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER'
     if (isManager) {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department && classSession.course.department !== userProfile.department) {
+      if (!userProfile?.department || classSession.course.department !== userProfile.department) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }
@@ -84,7 +84,7 @@ export async function PUT(
     const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
 
     if (isManager) {
-      if (userProfile?.department && existing.course.department !== userProfile.department) {
+      if (!userProfile?.department || existing.course.department !== userProfile.department) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }
@@ -98,7 +98,7 @@ export async function PUT(
         return NextResponse.json({ error: 'Course not found' }, { status: 404 })
       }
       if (isManager) {
-        if (userProfile?.department && course.department !== userProfile.department) {
+        if (!userProfile?.department || course.department !== userProfile.department) {
           return NextResponse.json({ error: 'Forbidden: Course belongs to another department' }, { status: 403 })
         }
       }
@@ -164,7 +164,7 @@ export async function DELETE(
     const isManager = session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER'
     if (isManager) {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department && existing.course.department !== userProfile.department) {
+      if (!userProfile?.department || existing.course.department !== userProfile.department) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }

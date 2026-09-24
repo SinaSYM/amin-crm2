@@ -38,13 +38,14 @@ export async function GET(request: NextRequest) {
       // read every department's interactions via the list or ?lead_id=.
       if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
         const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-        if (userProfile?.department) {
-          where.lead = {
+        if (!userProfile?.department) {
+          return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+        }
+        where.lead = {
             OR: [
               { department: userProfile.department },
               { assigned_to: { department: userProfile.department } },
             ],
-          }
         }
       }
     }
@@ -125,12 +126,13 @@ export async function POST(request: NextRequest) {
     // Managers can only interact with leads in their own department
     if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department) {
-        const isLeadDeptMatch = lead.department === userProfile.department
-        const isAgentDeptMatch = lead.assigned_to?.department === userProfile.department
-        if (!isLeadDeptMatch && !isAgentDeptMatch) {
-          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-        }
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+      }
+      const isLeadDeptMatch = lead.department === userProfile.department
+      const isAgentDeptMatch = lead.assigned_to?.department === userProfile.department
+      if (!isLeadDeptMatch && !isAgentDeptMatch) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }
 

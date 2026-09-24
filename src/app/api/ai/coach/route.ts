@@ -53,13 +53,12 @@ export async function POST(request: NextRequest) {
     // belonging to another agent or department.
     if (session.userRole === UserRole.DEPT_MANAGER || session.userRole === UserRole.SALES_MANAGER) {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department) {
-        const isLeadDeptMatch = lead.department === userProfile.department
-        const isAgentDeptMatch = lead.assigned_to?.department === userProfile.department
-        if (!isLeadDeptMatch && !isAgentDeptMatch) {
-          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-        }
-      } else {
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+      }
+      const isLeadDeptMatch = lead.department === userProfile.department
+      const isAgentDeptMatch = lead.assigned_to?.department === userProfile.department
+      if (!isLeadDeptMatch && !isAgentDeptMatch) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     } else if (session.userRole === UserRole.SALES_AGENT) {

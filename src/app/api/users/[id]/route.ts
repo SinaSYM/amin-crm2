@@ -61,7 +61,16 @@ export async function GET(
     // Sales Managers and Dept Managers cannot view profiles in other departments (hierarchy/department isolation)
     if (session.userRole === UserRole.SALES_MANAGER || session.userRole === UserRole.DEPT_MANAGER) {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department && user.department !== userProfile.department) {
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+      }
+      if (user.role === UserRole.STUDENT) {
+        const isEnrolled = await db.enrollment.findFirst({
+          where: { student_id: user.id, course: { department: userProfile.department } },
+          select: { id: true },
+        })
+        if (!isEnrolled) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      } else if (user.department !== userProfile.department) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
 
@@ -124,7 +133,13 @@ export async function PUT(
     // Department filtering for managers
     const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
     if (session.userRole === UserRole.SALES_MANAGER || session.userRole === UserRole.DEPT_MANAGER) {
-      if (userProfile?.department) {
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+      }
+      if (department !== undefined && department !== userProfile.department) {
+        return NextResponse.json({ error: 'Cannot assign a user outside your department' }, { status: 403 })
+      }
+      {
         if (existing.role === UserRole.STUDENT) {
           const isEnrolled = await db.enrollment.findFirst({
             where: {
@@ -245,7 +260,10 @@ export async function DELETE(
     // Department filtering for managers
     const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
     if (session.userRole === UserRole.SALES_MANAGER || session.userRole === UserRole.DEPT_MANAGER) {
-      if (userProfile?.department) {
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+      }
+      {
         if (existing.role === UserRole.STUDENT) {
           const isEnrolled = await db.enrollment.findFirst({
             where: {

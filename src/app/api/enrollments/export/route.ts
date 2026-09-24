@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession, isAuthorized } from '@/lib/auth'
 import { UserRole } from '@prisma/client'
+import { csvRow } from '@/lib/csv'
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,9 +27,10 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = {}
     if (session.userRole === UserRole.DEPT_MANAGER || session.userRole === UserRole.SALES_MANAGER) {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department) {
-        where.course = { department: userProfile.department }
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
       }
+      where.course = { department: userProfile.department }
     }
 
     const enrollments = await db.enrollment.findMany({
@@ -61,8 +63,8 @@ export async function GET(request: NextRequest) {
     ])
 
     const csvContent = [
-      headers.join(','),
-      ...rows.map((row) => row.join(',')),
+      csvRow(headers),
+      ...rows.map(csvRow),
     ].join('\n')
 
     // Add BOM for proper UTF-8 display

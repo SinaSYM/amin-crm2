@@ -34,11 +34,10 @@ export async function GET(request: NextRequest) {
         where: { id: session.userId },
         select: { department: true },
       })
-      if (userProfile?.department) {
-        where.course = {
-          department: userProfile.department,
-        }
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
       }
+      where.course = { department: userProfile.department }
     }
 
     const classes = await db.classSession.findMany({

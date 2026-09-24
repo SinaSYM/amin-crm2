@@ -52,7 +52,7 @@ export async function GET(
     // Department filtering for managers
     if (session.userRole === UserRole.DEPT_MANAGER || session.userRole === UserRole.SALES_MANAGER) {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department && enrollment.course.department !== userProfile.department) {
+      if (!userProfile?.department || enrollment.course.department !== userProfile.department) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }
@@ -98,7 +98,7 @@ export async function PUT(
     const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
     if (session.userRole === UserRole.DEPT_MANAGER || session.userRole === UserRole.SALES_MANAGER) {
       const course = await db.course.findUnique({ where: { id: existing.course_id } })
-      if (userProfile?.department && course?.department !== userProfile.department) {
+      if (!userProfile?.department || course?.department !== userProfile.department) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }
@@ -166,7 +166,7 @@ export async function DELETE(
     const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
     if (session.userRole === UserRole.DEPT_MANAGER || session.userRole === UserRole.SALES_MANAGER) {
       const course = await db.course.findUnique({ where: { id: existing.course_id } })
-      if (userProfile?.department && course?.department !== userProfile.department) {
+      if (!userProfile?.department || course?.department !== userProfile.department) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }

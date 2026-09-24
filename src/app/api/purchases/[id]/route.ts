@@ -45,7 +45,7 @@ export async function GET(
 
     if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department && purchase.requester.department !== userProfile.department) {
+      if (!userProfile?.department || purchase.requester.department !== userProfile.department) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }

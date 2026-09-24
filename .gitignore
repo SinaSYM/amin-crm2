@@ -41,6 +41,8 @@ yarn-error.log*
 # local sqlite database (contains real user data / password hashes, never commit)
 /db/*.db
 /db/*.db-journal
+/prisma/*.db
+/prisma/*.db-journal
 
 
 # typescript
@@ -63,5 +65,3 @@ server.log
 /isolate/
 /amincrm-full-project.zip
 /CRM-main.zip
-
-/prisma/dev.db

@@ -45,17 +45,20 @@ export async function GET(request: NextRequest) {
     // own department.
     if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department) {
-        const deptUsers = await db.user.findMany({
-          where: { department: userProfile.department },
-          select: { id: true },
-        })
-        where.user_id = { in: deptUsers.map((u) => u.id) }
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
       }
+      const deptUsers = await db.user.findMany({
+        where: { department: userProfile.department },
+        select: { id: true },
+      })
+      where.user_id = { in: deptUsers.map((u) => u.id) }
     }
 
-    const limit = limitParam ? parseInt(limitParam, 10) : 50
-    const offset = offsetParam ? parseInt(offsetParam, 10) : 0
+    const parsedLimit = limitParam ? Number(limitParam) : 50
+    const parsedOffset = offsetParam ? Number(offsetParam) : 0
+    const limit = Number.isInteger(parsedLimit) ? Math.min(200, Math.max(1, parsedLimit)) : 50
+    const offset = Number.isInteger(parsedOffset) ? Math.min(1_000_000, Math.max(0, parsedOffset)) : 0
 
     const logs = await db.activityLog.findMany({
       where,

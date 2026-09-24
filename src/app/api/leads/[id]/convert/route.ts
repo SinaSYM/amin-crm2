@@ -64,6 +64,10 @@ export async function POST(
 
     const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
 
+    if ((session.userRole === UserRole.DEPT_MANAGER || session.userRole === UserRole.SALES_MANAGER) && !userProfile?.department) {
+      return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+    }
+
     // Access control check
     if (session.userRole !== 'ADMIN') {
       if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
@@ -91,6 +95,10 @@ export async function POST(
         { error: 'دوره یافت نشد' },
         { status: 404 }
       )
+    }
+
+    if ((session.userRole === UserRole.DEPT_MANAGER || session.userRole === UserRole.SALES_MANAGER) && course.department !== userProfile?.department) {
+      return NextResponse.json({ error: 'Forbidden: Course belongs to another department' }, { status: 403 })
     }
 
     // Find or create student user

@@ -4,22 +4,74 @@ import { callGemini } from '@/lib/gemini'
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit'
 
 const MAX_ANSWERS_LENGTH = 5000
+const MAX_REQUEST_BYTES = 16_000
+
+async function readLimitedBody(request: Request, maxBytes: number): Promise<string | null> {
+  if (!request.body) return ''
+  const reader = request.body.getReader()
+  const chunks: Uint8Array[] = []
+  let totalBytes = 0
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    totalBytes += value.byteLength
+    if (totalBytes > maxBytes) {
+      await reader.cancel()
+      return null
+    }
+    chunks.push(value)
+  }
+  const body = new Uint8Array(totalBytes)
+  let offset = 0
+  for (const chunk of chunks) {
+    body.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return new TextDecoder().decode(body)
+}
 
 export async function POST(request: NextRequest) {
   try {
+    const contentLength = Number(request.headers.get('content-length') || 0)
+    if (contentLength > MAX_REQUEST_BYTES) {
+      return NextResponse.json({ error: 'حجم درخواست بیش از حد مجاز است' }, { status: 413 })
+    }
+
     const ip = getClientIp(request)
     if (!checkRateLimit(`ai-diagnostic:${ip}`, 3, 60 * 60 * 1000)) {
       return NextResponse.json({ error: 'تعداد درخواست‌ها بیش از حد مجاز است. کمی بعد دوباره تلاش کنید.' }, { status: 429 })
     }
 
-    const body = await request.json()
+    const rawBody = await readLimitedBody(request, MAX_REQUEST_BYTES)
+    if (rawBody === null) {
+      return NextResponse.json({ error: 'حجم درخواست بیش از حد مجاز است' }, { status: 413 })
+    }
+    let body: Record<string, unknown>
+    try {
+      const parsed: unknown = JSON.parse(rawBody)
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid JSON object')
+      body = parsed as Record<string, unknown>
+    } catch {
+      return NextResponse.json({ error: 'درخواست JSON معتبر نیست' }, { status: 400 })
+    }
     const { first_name, last_name, phone_number, answers = {}, referral_code } = body
 
-    if (!first_name || !last_name || !phone_number) {
+    if (
+      typeof first_name !== 'string' || first_name.trim().length < 2 || first_name.length > 80 ||
+      typeof last_name !== 'string' || last_name.trim().length < 2 || last_name.length > 80 ||
+      typeof phone_number !== 'string' || !/^[+\d][\d\s-]{6,20}$/.test(phone_number)
+    ) {
       return NextResponse.json({ error: 'First name, last name, and phone number are required' }, { status: 400 })
     }
 
-    if (JSON.stringify(answers).length > MAX_ANSWERS_LENGTH) {
+    if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
+      return NextResponse.json({ error: 'پاسخ‌های عارضه‌یابی نامعتبر است' }, { status: 400 })
+    }
+
+    const answerEntries = Object.entries(answers)
+    if (answerEntries.length > 30 || answerEntries.some(([question, answer]) =>
+      question.length > 200 || typeof answer !== 'string' || answer.length > 1500
+    ) || JSON.stringify(answers).length > MAX_ANSWERS_LENGTH) {
       return NextResponse.json({ error: 'حجم پاسخ‌ها بیش از حد مجاز است' }, { status: 400 })
     }
 
@@ -67,8 +119,9 @@ ${formattedAnswers}
       try {
         const metadataStr = parts[1].trim().replace(/```json|```/g, '')
         const metadata = JSON.parse(metadataStr)
-        if (metadata.calculatedScore) calculatedScore = Number(metadata.calculatedScore)
-        if (metadata.primaryGap) primaryGap = metadata.primaryGap
+        const parsedScore = Number(metadata.calculatedScore)
+        if (Number.isFinite(parsedScore)) calculatedScore = Math.min(100, Math.max(20, Math.round(parsedScore)))
+        if (['MANAGEMENT', 'SALES', 'LEGAL', 'FINANCE'].includes(metadata.primaryGap)) primaryGap = metadata.primaryGap
       } catch (e) {
         console.error('Failed to parse diagnostic metadata JSON:', e)
       }
@@ -76,7 +129,7 @@ ${formattedAnswers}
 
     // Resolve referred_by_id if referral_code is provided
     let referred_by_id: string | null = null
-    if (referral_code) {
+    if (typeof referral_code === 'string' && referral_code.length <= 100) {
       const referrer = await db.user.findUnique({
         where: { referral_code },
       })

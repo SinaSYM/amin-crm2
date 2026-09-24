@@ -33,11 +33,10 @@ export async function GET(request: NextRequest) {
     if (session.userRole === 'SALES_AGENT') {
       where.requester_id = session.userId
     } else if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
-      if (userProfile?.department) {
-        where.requester = {
-          department: userProfile.department,
-        }
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
       }
+      where.requester = { department: userProfile.department }
     } else {
       // ADMIN, FINANCIAL_OFFICER, EDUCATION_OFFICER can view all or filter by requesterId if provided
       if (requesterId) {

@@ -59,27 +59,26 @@ export async function POST(
     const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
     let setDept: string | null | undefined = undefined
     if (session.userRole === UserRole.SALES_MANAGER || session.userRole === UserRole.DEPT_MANAGER) {
-      if (userProfile?.department) {
-        let existingAgentDept: string | null | undefined = null
-        if (lead.assigned_to_id) {
-          const existingAgent = await db.user.findUnique({ where: { id: lead.assigned_to_id } })
-          existingAgentDept = existingAgent?.department
-        }
-        
-        const isLeadDeptMatch = lead.department === userProfile.department
-        const isAgentDeptMatch = existingAgentDept === userProfile.department
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+      }
+      let existingAgentDept: string | null | undefined = null
+      if (lead.assigned_to_id) {
+        const existingAgent = await db.user.findUnique({ where: { id: lead.assigned_to_id } })
+        existingAgentDept = existingAgent?.department
+      }
 
-        if ((lead.department || lead.assigned_to_id) && !isLeadDeptMatch && !isAgentDeptMatch) {
-          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-        }
-        if (agent.department !== userProfile.department) {
-          return NextResponse.json({ error: 'Cannot assign lead to an agent in a different department' }, { status: 403 })
-        }
-        if (!lead.department) {
-          setDept = userProfile.department
-        }
-      } else {
+      const isLeadDeptMatch = lead.department === userProfile.department
+      const isAgentDeptMatch = existingAgentDept === userProfile.department
+
+      if (!isLeadDeptMatch && !isAgentDeptMatch) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      if (agent.department !== userProfile.department) {
+        return NextResponse.json({ error: 'Cannot assign lead to an agent in a different department' }, { status: 403 })
+      }
+      if (!lead.department) {
+        setDept = userProfile.department
       }
     }
 

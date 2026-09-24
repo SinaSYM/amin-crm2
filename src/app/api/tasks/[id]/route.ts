@@ -29,11 +29,12 @@ async function resolveAuthorizedTask(request: NextRequest, id: string) {
   // Department isolation for managers
   if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
     const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-    if (userProfile?.department) {
-      const taskAgent = await db.user.findUnique({ where: { id: existingTask.agent_id }, select: { department: true } })
-      if (taskAgent?.department !== userProfile.department) {
-        return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
-      }
+    if (!userProfile?.department) {
+      return { error: NextResponse.json({ error: 'Manager department is required' }, { status: 403 }) }
+    }
+    const taskAgent = await db.user.findUnique({ where: { id: existingTask.agent_id }, select: { department: true } })
+    if (taskAgent?.department !== userProfile.department) {
+      return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
     }
   }
 

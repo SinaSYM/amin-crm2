@@ -71,6 +71,9 @@ export async function POST(request: NextRequest) {
     // manager, matching manual lead creation (leads/route.ts POST) — imported
     // leads previously always had a null department.
     const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
+    if ((session.userRole === UserRole.DEPT_MANAGER || session.userRole === UserRole.SALES_MANAGER) && !userProfile?.department) {
+      return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+    }
     const leadDept =
       session.userRole === UserRole.DEPT_MANAGER || session.userRole === UserRole.SALES_MANAGER
         ? userProfile?.department ?? null

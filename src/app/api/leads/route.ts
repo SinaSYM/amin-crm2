@@ -37,13 +37,13 @@ export async function GET(request: NextRequest) {
         where.assigned_to_id = assigned_to_id
       }
     } else if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
-      if (userProfile?.department) {
-        where.OR = [
-          { department: userProfile.department },
-          { assigned_to: { department: userProfile.department } }
-        ]
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
       }
-      // Managers without a department see all leads
+      where.OR = [
+        { department: userProfile.department },
+        { assigned_to: { department: userProfile.department } }
+      ]
       if (assigned_to_id) {
         where.assigned_to_id = assigned_to_id
       }
@@ -159,9 +159,15 @@ export async function POST(request: NextRequest) {
 
     // Restrict managers to only assigning leads to agents in their department
     if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
-      if (userProfile?.department && targetAgentId) {
-        const targetAgent = await db.user.findUnique({ where: { id: targetAgentId } })
-        if (targetAgent && targetAgent.department !== userProfile.department) {
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+      }
+      if (department && department !== userProfile.department) {
+        return NextResponse.json({ error: 'Cannot create a lead in another department' }, { status: 403 })
+      }
+      if (targetAgentId) {
+        const targetAgent = await db.user.findUnique({ where: { id: targetAgentId }, select: { id: true, role: true, department: true } })
+        if (!targetAgent || targetAgent.role !== 'SALES_AGENT' || targetAgent.department !== userProfile.department) {
           return NextResponse.json({ error: 'Cannot assign lead to an agent in a different department' }, { status: 403 })
         }
       }
@@ -181,9 +187,7 @@ export async function POST(request: NextRequest) {
     // Set department automatically to creator's department if creator is a manager
     let leadDept = department || null
     if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
-      if (userProfile?.department) {
-        leadDept = userProfile.department
-      }
+      leadDept = userProfile!.department
     } else {
       // For Admins/etc. use target department or fallback to their own
       if (!leadDept && userProfile?.department) {

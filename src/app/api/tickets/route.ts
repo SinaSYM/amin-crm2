@@ -32,9 +32,10 @@ export async function GET(request: NextRequest) {
     // Department filter for managers (previously missing — managers saw org-wide tickets)
     if (session.userRole === UserRole.DEPT_MANAGER || session.userRole === UserRole.SALES_MANAGER) {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department) {
-        where.student = { ...(where.student || {}), department: userProfile.department }
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
       }
+      where.student = { ...(where.student || {}), department: userProfile.department }
     }
 
     const tickets = await db.ticket.findMany({

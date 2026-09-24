@@ -40,10 +40,13 @@ export async function GET(request: NextRequest) {
 
     // Filter by course department for managers
     const isManager = session.userRole === UserRole.DEPT_MANAGER || session.userRole === UserRole.SALES_MANAGER
-    if (course_id || (isManager && userProfile?.department)) {
+    if (isManager && !userProfile?.department) {
+      return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+    }
+    if (course_id || isManager) {
       where.course = {
         ...(course_id && { id: course_id }),
-        ...(isManager && userProfile?.department && { department: userProfile.department })
+        ...(isManager && { department: userProfile!.department })
       }
     }
 
@@ -111,7 +114,7 @@ export async function POST(request: NextRequest) {
     // Verify course department matches manager's department
     if (session.userRole === UserRole.DEPT_MANAGER || session.userRole === UserRole.SALES_MANAGER) {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department && course.department !== userProfile.department) {
+      if (!userProfile?.department || course.department !== userProfile.department) {
         return NextResponse.json({ error: 'Forbidden: Course belongs to another department' }, { status: 403 })
       }
     }

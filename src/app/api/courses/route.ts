@@ -23,9 +23,10 @@ export async function GET(request: NextRequest) {
     // department's courses (and revenue data) in dropdowns and lists.
     if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department) {
-        where.department = userProfile.department
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
       }
+      where.department = userProfile.department
     }
 
     const courses = await db.course.findMany({

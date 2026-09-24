@@ -35,6 +35,9 @@ export async function GET(request: NextRequest) {
 
     // Restrict based on role hierarchy and department
     if (session.userRole !== UserRole.ADMIN) {
+      if ((session.userRole === UserRole.SALES_MANAGER || session.userRole === UserRole.DEPT_MANAGER) && !userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+      }
       if (userProfile?.department) {
         if (role === UserRole.STUDENT) {
           where.role = UserRole.STUDENT
@@ -71,7 +74,6 @@ export async function GET(request: NextRequest) {
           ]
         }
       }
-      // Managers without a department see all users
     } else {
       if (role) {
         where.role = role
@@ -159,9 +161,10 @@ export async function POST(request: NextRequest) {
     let userDept = department || null
     const creatorProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
     if (session.userRole === UserRole.DEPT_MANAGER || session.userRole === UserRole.SALES_MANAGER) {
-      if (creatorProfile?.department) {
-        userDept = creatorProfile.department
+      if (!creatorProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
       }
+      userDept = creatorProfile.department
     }
 
     // Sales Agents must belong to a department

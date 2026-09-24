@@ -31,6 +31,9 @@ export async function PUT(request: NextRequest) {
         { status: 400 }
       )
     }
+    if (lead_ids.length > 200 || lead_ids.some((id) => typeof id !== 'string' || id.length > 100)) {
+      return NextResponse.json({ error: 'حداکثر ۲۰۰ شناسه معتبر مجاز است' }, { status: 400 })
+    }
 
     // Load current user profile for department filtering
     const userProfile = await db.user.findUnique({
@@ -46,20 +49,16 @@ export async function PUT(request: NextRequest) {
 
     if (session.userRole !== 'ADMIN') {
       if (session.userRole === UserRole.SALES_MANAGER || session.userRole === UserRole.DEPT_MANAGER) {
-        if (userProfile?.department) {
-          const hasForbiddenLeads = targetLeads.some(lead => {
-            const isLeadDeptMatch = lead.department === userProfile.department
-            const isAgentDeptMatch = lead.assigned_to?.department === userProfile.department
-            return !isLeadDeptMatch && !isAgentDeptMatch
-          })
-          if (hasForbiddenLeads) {
-            return NextResponse.json(
-              { error: 'Forbidden: One or more leads belong to another department' },
-              { status: 403 }
-            )
-          }
-        } else {
+        if (!userProfile?.department) {
           return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+        const hasForbiddenLeads = targetLeads.some(lead => {
+          const isLeadDeptMatch = lead.department === userProfile.department
+          const isAgentDeptMatch = lead.assigned_to?.department === userProfile.department
+          return !isLeadDeptMatch && !isAgentDeptMatch
+        })
+        if (hasForbiddenLeads || targetLeads.length !== new Set(lead_ids).size) {
+          return NextResponse.json({ error: 'Forbidden: One or more leads belong to another department or do not exist' }, { status: 403 })
         }
       } else {
         // SALES_AGENT, MENTOR, etc. can only update their own leads
@@ -98,7 +97,7 @@ export async function PUT(request: NextRequest) {
 
         // Verify agent department matches manager's department
         if (session.userRole === UserRole.SALES_MANAGER || session.userRole === UserRole.DEPT_MANAGER) {
-          if (userProfile?.department && agent.department !== userProfile.department) {
+          if (!userProfile?.department || agent.role !== UserRole.SALES_AGENT || agent.department !== userProfile.department) {
             return NextResponse.json(
               { error: 'Forbidden: Agent belongs to another department' },
               { status: 403 }

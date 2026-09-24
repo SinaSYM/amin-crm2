@@ -5,6 +5,15 @@ import { resend, EMAIL_FROM, isEmailConfigured } from '@/lib/resend'
 
 export const dynamic = 'force-dynamic'
 
+function escapeHtml(value: unknown): string {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+}
+
 /**
  * Daily follow-up reminder digest.
  * Can be triggered two ways:
@@ -82,13 +91,14 @@ export async function POST(req: NextRequest) {
                     const dateStr = d
                         ? d.toLocaleDateString('fa-IR', { weekday: 'long', day: 'numeric', month: 'long' })
                         : ''
-                    const leadName = [f.lead.first_name, f.lead.last_name].filter(Boolean).join(' ') || f.lead.phone_number
+                    const leadName = escapeHtml([f.lead.first_name, f.lead.last_name].filter(Boolean).join(' ') || f.lead.phone_number)
+                    const phone = escapeHtml(f.lead.phone_number)
                     const color = overdue ? '#e03e3e' : '#2383e2'
                     return `
           <tr>
             <td style="padding:10px 12px;border-bottom:1px solid #ededec;">
               <div style="font-weight:600;color:#37352f;">${leadName}</div>
-              <div style="font-size:12px;color:#787774;direction:ltr;text-align:right;">${f.lead.phone_number}</div>
+              <div style="font-size:12px;color:#787774;direction:ltr;text-align:right;">${phone}</div>
             </td>
             <td style="padding:10px 12px;border-bottom:1px solid #ededec;font-size:13px;color:${color};white-space:nowrap;">
               ${overdue ? '⚠ تأخیر دارد — ' : ''}${dateStr}
@@ -108,7 +118,7 @@ export async function POST(req: NextRequest) {
                 subject: `📋 ${followups.length} پیگیری امروز شما — سامانه CRM امین`,
                 html: `
         <div dir="rtl" style="font-family:Tahoma,'Segoe UI',sans-serif;background:#ffffff;color:#37352f;max-width:560px;margin:0 auto;padding:24px;">
-          <h1 style="font-size:18px;margin:0 0 4px;">سلام ${user.first_name} 👋</h1>
+          <h1 style="font-size:18px;margin:0 0 4px;">سلام ${escapeHtml(user.first_name)} 👋</h1>
           <p style="font-size:14px;color:#787774;margin:0 0 16px;">
             شما <strong style="color:#37352f;">${followups.length}</strong> پیگیری برای امروز (یا عقب‌افتاده) دارید:
           </p>
@@ -136,9 +146,4 @@ export async function POST(req: NextRequest) {
         skippedCount: skipped.length,
         timestamp: now.toISOString(),
     })
-}
-
-// Allow GET too so simple cron services that only do GET work.
-export async function GET(req: NextRequest) {
-    return POST(req)
 }

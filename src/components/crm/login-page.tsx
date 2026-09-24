@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import {
   GraduationCap,
   Mail,
@@ -45,30 +45,8 @@ export default function LoginPage({ initialResetToken }: { initialResetToken?: s
   const [regLoading, setRegLoading] = useState(false)
   const [regSuccess, setRegSuccess] = useState(false)
 
-  // Title typing effect
-  const fullTitleText = 'آموزش عالی آزاد امین'
-  const [displayedTitle, setDisplayedTitle] = useState('')
-  const [titleComplete, setTitleComplete] = useState(false)
-  const typingTimer = useRef<NodeJS.Timeout | null>(null)
-
-  useEffect(() => {
-    let index = 0
-    setDisplayedTitle('')
-    setTitleComplete(false)
-    if (typingTimer.current) clearInterval(typingTimer.current)
-    typingTimer.current = setInterval(() => {
-      if (index < fullTitleText.length) {
-        setDisplayedTitle((prev) => prev + fullTitleText.charAt(index))
-        index++
-      } else {
-        setTitleComplete(true)
-        if (typingTimer.current) clearInterval(typingTimer.current)
-      }
-    }, 90)
-    return () => { if (typingTimer.current) clearInterval(typingTimer.current) }
-  }, [])
-
   const currentPersianYear = new Intl.DateTimeFormat('fa-IR', { year: 'numeric' }).format(new Date())
+  const loginMode = mode === 'login' && !regSuccess
 
   // ─── Login Handler ───────────────────────────────────────
   const handleLogin = async (e?: React.FormEvent) => {
@@ -263,21 +241,70 @@ export default function LoginPage({ initialResetToken }: { initialResetToken?: s
   return (
     <div className="min-h-screen auth-canvas flex items-center justify-center p-4 relative" dir="rtl">
       {!loginSuccess ? (
-        <div className="w-full max-w-md">
-          <Card className="border border-border bg-card shadow-lg rounded-2xl overflow-hidden">
-            {/* Header — minimal, monochrome */}
-            <div className="pt-10 pb-2 px-8 text-center">
-              <div className="inline-flex items-center justify-center size-14 rounded-2xl bg-foreground text-background mb-4 shadow-md">
-                <GraduationCap className="size-8" />
-              </div>
-              <h1 className="text-xl font-bold text-foreground mb-1">
-                {displayedTitle}
-                {!titleComplete && <span className="animate-pulse">|</span>}
-              </h1>
-              <p className="text-muted-foreground text-xs">سامانه هوشمند ارتباط با مشتری (CRM)</p>
-            </div>
+        <div className={`w-full ${loginMode ? 'max-w-5xl' : 'max-w-4xl'}`}>
+          <Card className="border border-border/80 bg-card shadow-[0_24px_80px_-32px_rgba(0,0,0,0.28)] rounded-[1.75rem] overflow-hidden">
+            <div className={loginMode ? 'grid md:grid-cols-2' : ''}>
+              <section className={loginMode
+                ? 'relative isolate overflow-hidden bg-foreground text-background px-6 py-7 sm:px-10 sm:py-9 md:min-h-[620px] md:px-12 md:py-11 flex flex-col justify-between'
+                : 'pt-10 pb-2 px-8 text-center'}>
+                {loginMode && (
+                  <>
+                    <div aria-hidden="true" className="absolute -left-24 -top-28 -z-10 size-80 rounded-full border border-background/10" />
+                    <div aria-hidden="true" className="absolute -left-12 -top-16 -z-10 size-56 rounded-full border border-background/10" />
+                    <div aria-hidden="true" className="absolute inset-x-0 bottom-0 -z-10 h-44 bg-gradient-to-t from-background/[0.06] to-transparent" />
+                  </>
+                )}
+                <div className={loginMode ? 'flex items-center gap-3' : 'flex flex-col items-center'}>
+                  <div className={`inline-flex items-center justify-center size-12 rounded-2xl ${loginMode ? 'bg-background/10 border border-background/15 text-background' : 'bg-foreground text-background size-14'} ${loginMode ? '' : 'mb-4'} shrink-0`}>
+                    <GraduationCap className={loginMode ? 'size-6' : 'size-8'} />
+                  </div>
+                  <div className={loginMode ? '' : 'text-center'}>
+                    <h1 className={`font-bold tracking-tight ${loginMode ? 'text-base sm:text-lg text-background' : 'text-xl text-foreground mb-1'}`}>
+                      مؤسسه آموزش عالی آزاد امین
+                    </h1>
+                    <p className={`mt-1 ${loginMode ? 'text-[11px] sm:text-xs text-background/65' : 'text-muted-foreground text-xs'}`}>
+                      سامانه مدیریت ارتباط با مشتری
+                    </p>
+                  </div>
+                </div>
 
-            <CardContent className="p-6 sm:p-8">
+                {loginMode && (
+                  <div className="mt-9 md:mt-0">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-background/15 bg-background/[0.06] px-3 py-1.5 text-[10px] sm:text-xs text-background/75">
+                      <span className="size-1.5 rounded-full bg-background/80" />
+                      فضای کاری یکپارچهٔ امین
+                    </div>
+                    <h2 className="mt-6 max-w-md text-3xl sm:text-4xl lg:text-[2.7rem] leading-[1.5] font-bold tracking-tight">
+                      ارتباطی روشن؛<br />
+                      پیگیری‌ای دقیق‌تر.
+                    </h2>
+                    <p className="mt-4 max-w-sm text-sm leading-7 text-background/65">
+                      ارتباط با مخاطبان، مدیریت پیگیری‌ها و همراهی تیم را در یک فضای منظم دنبال کنید.
+                    </p>
+
+                    <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 md:grid-cols-1 gap-2.5">
+                      {[
+                        'مدیریت ارتباط با مخاطبان',
+                        'پیگیری منظم فعالیت‌های تیم',
+                        'گزارش‌های روشن و یکپارچه',
+                      ].map((item) => (
+                        <div key={item} className="flex items-center gap-2.5 rounded-xl border border-background/10 bg-background/[0.045] px-3 py-2.5 text-[11px] sm:text-xs text-background/80">
+                          <CheckCircle2 className="size-4 shrink-0 text-background/60" />
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {loginMode && (
+                  <p className="hidden md:block mt-8 text-[10px] text-background/45">
+                    سامانهٔ داخلی مؤسسه آموزش عالی آزاد امین
+                  </p>
+                )}
+              </section>
+
+              <CardContent className={loginMode ? 'p-6 sm:p-10 md:p-12 flex flex-col justify-center' : 'p-6 sm:p-8'}>
               {/* ═══ Login Mode ═══ */}
               {mode === 'login' && !regSuccess && (
                 <>
@@ -300,7 +327,7 @@ export default function LoginPage({ initialResetToken }: { initialResetToken?: s
                           type="text"
                           value={loginIdentifier}
                           onChange={(e) => setLoginIdentifier(e.target.value)}
-                          placeholder="[email protected] یا 09121234567"
+                          placeholder="name@example.com یا 09121234567"
                           dir="ltr"
                           className="pr-9 h-10 text-xs"
                           autoComplete="username"
@@ -339,7 +366,7 @@ export default function LoginPage({ initialResetToken }: { initialResetToken?: s
                     </Button>
 
                     <p className="text-[10px] text-muted-foreground text-center mt-1">
-                      * حساب شما پس از تایید توسط مدیر فعال خواهد شد.
+                      * حساب شما پس از تأیید مدیر فعال خواهد شد.
                     </p>
                   </form>
 
@@ -364,7 +391,7 @@ export default function LoginPage({ initialResetToken }: { initialResetToken?: s
                   <div className="text-center mb-5">
                     <h2 className="text-lg font-bold text-foreground">ثبت‌نام کاربر جدید</h2>
                     <p className="text-xs text-muted-foreground mt-1">
-                      اطلاعات خود را وارد کنید. پس از تایید مدیریت حساب شما فعال می‌شود.
+                      اطلاعات خود را وارد کنید. پس از تأیید مدیریت، حساب شما فعال می‌شود.
                     </p>
                   </div>
 
@@ -464,7 +491,7 @@ export default function LoginPage({ initialResetToken }: { initialResetToken?: s
                             <ShieldCheck className="size-5" />
                           </div>
                           <div>
-                            <h3 className="text-sm font-bold text-foreground">تایید حساب کاربری</h3>
+                            <h3 className="text-sm font-bold text-foreground">تأیید حساب کاربری</h3>
                             <p className="text-[10px] text-muted-foreground">مراحل فعال‌سازی حساب شما</p>
                           </div>
                         </div>
@@ -479,12 +506,12 @@ export default function LoginPage({ initialResetToken }: { initialResetToken?: s
                             {
                               icon: Clock,
                               title: 'بررسی توسط مدیریت',
-                              desc: 'درخواست شما برای تایید به مدیریت ارسال می‌شود',
+                              desc: 'درخواست شما برای تأیید به مدیریت ارسال می‌شود',
                             },
                             {
                               icon: CheckCircle2,
                               title: 'فعال‌سازی حساب',
-                              desc: 'پس از تایید، با ایمیل یا شماره موبایل وارد شوید',
+                              desc: 'پس از تأیید، با ایمیل یا شماره موبایل وارد شوید',
                             },
                           ].map((step, i) => (
                             <div key={step.title} className="flex gap-3">
@@ -506,11 +533,11 @@ export default function LoginPage({ initialResetToken }: { initialResetToken?: s
                           <div className="flex items-center gap-2">
                             <Clock className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
                             <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
-                              وضعیت درخواست: در انتظار تایید مدیریت
+                              وضعیت درخواست: در انتظار تأیید مدیریت
                             </p>
                           </div>
                           <p className="text-[10px] text-amber-700/80 dark:text-amber-300/70 mt-1 leading-relaxed">
-                            تا زمان تایید، امکان ورود به سیستم وجود ندارد.
+                            تا زمان تأیید، امکان ورود به سیستم وجود ندارد.
                           </p>
                         </div>
                       </div>
@@ -538,7 +565,7 @@ export default function LoginPage({ initialResetToken }: { initialResetToken?: s
                   <div>
                     <h3 className="text-base font-bold text-foreground mb-2">ثبت‌نام با موفقیت انجام شد! 🎉</h3>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      درخواست عضویت شما ثبت شد و پس از تایید مدیریت، حساب شما فعال خواهد شد.
+                      درخواست عضویت شما ثبت شد و پس از تأیید مدیریت، حساب شما فعال خواهد شد.
                       <br />
                       برای ورود منتظر تایید باشید.
                     </p>
@@ -552,11 +579,12 @@ export default function LoginPage({ initialResetToken }: { initialResetToken?: s
                 </div>
               )}
             </CardContent>
+            </div>
           </Card>
 
           {/* Footer */}
           <p className="text-center text-[11px] text-muted-foreground mt-6">
-            سیستم مدیریت ارتباط با مشتری — مؤسسه آموزشی © {currentPersianYear}
+            سامانه مدیریت ارتباط با مشتری · مؤسسه آموزش عالی آزاد امین © {currentPersianYear}
           </p>
         </div>
       ) : (

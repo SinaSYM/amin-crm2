@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client')
+const { isIP } = require('node:net')
 
 const webhookUrl = process.env.REMINDER_WEBHOOK_URL
 const webhookMethod = process.env.REMINDER_WEBHOOK_METHOD || 'POST'
@@ -6,13 +7,40 @@ const payloadTemplate = process.env.REMINDER_WEBHOOK_PAYLOAD_TEMPLATE
     || '{"recipient_phone":"{recipient_phone}","title":"{title}","due_date":"{due_date}","description":"{description}"}'
 const pollIntervalMs = Number(process.env.REMINDER_POLL_INTERVAL_MS || 60_000)
 
+let parsedWebhookUrl
+if (!webhookUrl) {
+    console.error('REMINDER_WEBHOOK_URL is required for the reminder worker.')
+    process.exit(1)
+}
+
+try {
+    parsedWebhookUrl = new URL(webhookUrl)
+} catch {
+    console.error('REMINDER_WEBHOOK_URL must be a valid absolute HTTPS URL.')
+    process.exit(1)
+}
+
+const isLocalHostname = parsedWebhookUrl.hostname === 'localhost'
+    || parsedWebhookUrl.hostname.endsWith('.localhost')
+    || parsedWebhookUrl.hostname === '::1'
+    || /^127\./.test(parsedWebhookUrl.hostname)
+    || /^10\./.test(parsedWebhookUrl.hostname)
+    || /^192\.168\./.test(parsedWebhookUrl.hostname)
+    || /^172\.(1[6-9]|2\d|3[01])\./.test(parsedWebhookUrl.hostname)
+    || isIP(parsedWebhookUrl.hostname.replace(/^\[|\]$/g, '')) !== 0
+
 if (!process.env.DATABASE_URL) {
     console.error('DATABASE_URL is required for the reminder worker.')
     process.exit(1)
 }
 
-if (!webhookUrl) {
-    console.error('REMINDER_WEBHOOK_URL is required for the reminder worker.')
+if (parsedWebhookUrl.protocol !== 'https:' || parsedWebhookUrl.username || parsedWebhookUrl.password || isLocalHostname) {
+    console.error('REMINDER_WEBHOOK_URL must use HTTPS and cannot target local/private hosts or embed credentials.')
+    process.exit(1)
+}
+
+if (!['POST', 'PUT', 'PATCH'].includes(webhookMethod.toUpperCase())) {
+    console.error('REMINDER_WEBHOOK_METHOD must be POST, PUT, or PATCH.')
     process.exit(1)
 }
 
@@ -83,10 +111,11 @@ async function dispatchReminder(task) {
 
     try {
         const response = await fetch(webhookUrl, {
-            method: webhookMethod,
+            method: webhookMethod.toUpperCase(),
             headers: webhookHeaders,
             body: buildPayload(replacements),
             signal: AbortSignal.timeout(15_000),
+            redirect: 'error',
         })
         const responseText = await response.text()
 

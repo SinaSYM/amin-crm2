@@ -47,14 +47,11 @@ export async function GET(
     if (session.userRole !== 'ADMIN') {
       if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
         const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-        if (userProfile?.department) {
-          const isLeadDeptMatch = lead.department === userProfile.department
-          const isAgentDeptMatch = lead.assigned_to?.department === userProfile.department
-          if (!isLeadDeptMatch && !isAgentDeptMatch) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-          }
+        const isLeadDeptMatch = !!userProfile?.department && lead.department === userProfile.department
+        const isAgentDeptMatch = !!userProfile?.department && lead.assigned_to?.department === userProfile.department
+        if (!isLeadDeptMatch && !isAgentDeptMatch) {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
-        // Managers without a department may view any lead
       } else {
         // SALES_AGENT, MENTOR, etc. can only view their own assigned leads
         if (lead.assigned_to_id !== session.userId) {
@@ -116,14 +113,11 @@ export async function PUT(
     // Access control check
     if (session.userRole !== 'ADMIN') {
       if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
-        if (userProfile?.department) {
-          const isLeadDeptMatch = existing.department === userProfile.department
-          const isAgentDeptMatch = existing.assigned_to?.department === userProfile.department
-          if (!isLeadDeptMatch && !isAgentDeptMatch) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-          }
+        const isLeadDeptMatch = !!userProfile?.department && existing.department === userProfile.department
+        const isAgentDeptMatch = !!userProfile?.department && existing.assigned_to?.department === userProfile.department
+        if (!isLeadDeptMatch && !isAgentDeptMatch) {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
-        // Managers without a department may update any lead
       } else {
         // SALES_AGENT, MENTOR, etc. can only update their own assigned leads
         if (existing.assigned_to_id !== session.userId) {
@@ -139,9 +133,15 @@ export async function PUT(
 
     // Prevent managers from assigning to agents in other departments
     if (session.userRole === 'DEPT_MANAGER' || session.userRole === 'SALES_MANAGER') {
-      if (userProfile?.department && assigned_to_id) {
+      if (!userProfile?.department) {
+        return NextResponse.json({ error: 'Manager department is required' }, { status: 403 })
+      }
+      if (department !== undefined && department !== userProfile.department) {
+        return NextResponse.json({ error: 'Cannot move a lead outside your department' }, { status: 403 })
+      }
+      if (assigned_to_id) {
         const targetAgent = await db.user.findUnique({ where: { id: assigned_to_id } })
-        if (targetAgent && targetAgent.department !== userProfile.department) {
+        if (!targetAgent || targetAgent.department !== userProfile.department) {
           return NextResponse.json({ error: 'Cannot assign lead to an agent in a different department' }, { status: 403 })
         }
       }
@@ -274,14 +274,11 @@ export async function DELETE(
     // Department filtering for managers
     if (session.userRole === 'SALES_MANAGER' || session.userRole === 'DEPT_MANAGER') {
       const userProfile = await db.user.findUnique({ where: { id: session.userId }, select: { department: true } })
-      if (userProfile?.department) {
-        const isLeadDeptMatch = existing.department === userProfile.department
-        const isAgentDeptMatch = existing.assigned_to?.department === userProfile.department
-        if (!isLeadDeptMatch && !isAgentDeptMatch) {
-          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-        }
+      const isLeadDeptMatch = !!userProfile?.department && existing.department === userProfile.department
+      const isAgentDeptMatch = !!userProfile?.department && existing.assigned_to?.department === userProfile.department
+      if (!isLeadDeptMatch && !isAgentDeptMatch) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
-      // Managers without a department may delete any lead
     }
 
     // Delete lead (interactions will cascade delete)
